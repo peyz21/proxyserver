@@ -25,7 +25,7 @@ cd proxyserver
 Navigate to the project directory and run:
 
 ```bash
-python web_proxy_server.py
+python proxyserver.py
 ```
 
 ## Testing
