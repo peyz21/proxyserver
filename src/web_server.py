@@ -1,2 +1,94 @@
 import socket
+import os
+import datetime
 
+def generate_http_response(status_code, path=''):
+    """ Generate an HTTP response based on the given status code. """
+    responses = {
+        200: f"HTTP/1.1 200 OK\nContent-Type: text/html\n\n{read_file(path)}",
+        304: "HTTP/1.1 304 Not Modified\n\n",
+        400: "HTTP/1.1 400 Bad Request\n\n<html><body><h1>400 Bad Request</h1></body></html>",
+        403: "HTTP/1.1 403 Forbidden\n\n<html><body><h1>403 Forbidden</h1></body></html>",
+        404: "HTTP/1.1 404 Not Found\n\n<html><body><h1>404 Not Found</h1></body></html>",
+        411: "HTTP/1.1 411 Length Required\n\n<html><body><h1>411 Length Required</h1></body></html>"
+    }
+    return responses.get(status_code, "HTTP/1.1 500 Internal Server Error\n\n")
+
+def read_file(path):
+    """ Helper function to read file content """
+    try:
+        with open(path, 'r') as file:
+            return file.read()
+    except FileNotFoundError:
+        return ''
+
+def last_modified_time(path):
+    """ Helper function to get the last modified time of a file """
+    try:
+        mod_time = os.path.getmtime(path)
+        return datetime.datetime.fromtimestamp(mod_time).strftime('%a, %d %b %Y %H:%M:%S GMT')
+    except OSError:
+        return ''
+
+def handle_request(request):
+    """ Handle the incoming request and determine the status code. """
+    if not request.strip(): 
+        return 400, '' 
+
+    headers = request.split("\n")
+    first_line = headers[0]
+    parts = first_line.split()
+
+    if len(parts) != 3: 
+        return 400, ''
+
+    method, path, _ = parts
+
+    if method == "GET":
+        if path == "/":
+            path = "/test.html"  # default to test.html for simplicity
+
+        file_path = f'.{path}'
+        if not os.path.exists(file_path):
+            return 404, ''
+        
+        # Check for If-Modified-Since header
+        for header in headers:
+            if header.startswith('If-Modified-Since:'):
+                last_mod_client = header.split(': ')[1].strip()
+                last_mod_server = last_modified_time(file_path)
+                if last_mod_server <= last_mod_client:
+                    return 304, ''
+
+        return 200, file_path
+
+    elif method == "POST":
+        # Implement 411 Length Required for POST requests without Content-Length
+        if 'Content-Length:' not in request:
+            return 411, ''
+        # Other POST handling (if applicable)
+
+    return 403, ''  # Default to 403 Forbidden for non-handled methods
+
+def main():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('localhost', 8080))
+    server_socket.listen(5)
+
+    print("Server is listening on port 8080...")
+
+    while True:
+        try:
+            client_socket, address = server_socket.accept()
+            request = client_socket.recv(1024).decode()
+            print(f"Received request:\n{request}")
+
+            status_code, file_path = handle_request(request)
+            response = generate_http_response(status_code, file_path)
+            client_socket.sendall(response.encode())
+            client_socket.close()
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    main()
