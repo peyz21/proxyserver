@@ -1,6 +1,7 @@
 import socket
 import os
 import datetime
+import traceback
 
 def generate_http_response(status_code, path=''):
     """ Generate an HTTP response based on the given status code. """
@@ -33,62 +34,73 @@ def last_modified_time(path):
 def handle_request(request):
     """ Handle the incoming request and determine the status code. """
     if not request.strip(): 
-        return 400, '' 
+        return 400, ''  # Return Bad Request for empty or whitespace-only requests
 
     headers = request.split("\n")
     first_line = headers[0]
     parts = first_line.split()
 
     if len(parts) != 3: 
-        return 400, ''
+        return 400, ''  # Return Bad Request for malformed request lines
 
     method, path, _ = parts
 
+    # Check for explicitly forbidden paths
+    if path == "/forbiddenpath":
+        return 403, ''  # Return 403 Forbidden for this specific path
+
     if method == "GET":
         if path == "/":
-            path = "/test.html"  # default to test.html for simplicity
+            path = "/test.html"  # Default to test.html for simplicity
 
         file_path = f'.{path}'
         if not os.path.exists(file_path):
-            return 404, ''
-        
+            return 404, ''  # Return 404 Not Found for nonexistent files
+
         # Check for If-Modified-Since header
         for header in headers:
             if header.startswith('If-Modified-Since:'):
                 last_mod_client = header.split(': ')[1].strip()
                 last_mod_server = last_modified_time(file_path)
                 if last_mod_server <= last_mod_client:
-                    return 304, ''
+                    return 304, ''  # Return 304 Not Modified if applicable
 
-        return 200, file_path
+        return 200, file_path  # Return 200 OK for successful GET requests
 
     elif method == "POST":
         # Implement 411 Length Required for POST requests without Content-Length
         if 'Content-Length:' not in request:
-            return 411, ''
-        # Other POST handling (if applicable)
+            return 411, ''  
 
-    return 403, ''  # Default to 403 Forbidden for non-handled methods
+    return 403, ''  # Return 403 Forbidden for all other cases
 
 def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('localhost', 8080))
-    server_socket.listen(5)
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(('localhost', 8080))
+        server_socket.listen(5)
 
-    print("Server is listening on port 8080...")
+        print("Server is listening on port 8080...")
 
-    while True:
-        try:
-            client_socket, address = server_socket.accept()
-            request = client_socket.recv(1024).decode()
-            print(f"Received request:\n{request}")
+        while True:
+            try:
+                client_socket, address = server_socket.accept()
+                request = client_socket.recv(1024).decode()
+                print(f"Received request:\n{request}")
 
-            status_code, file_path = handle_request(request)
-            response = generate_http_response(status_code, file_path)
-            client_socket.sendall(response.encode())
-            client_socket.close()
-        except Exception as e:
-            print(f"An error occurred: {e}")
+                status_code, file_path = handle_request(request)
+                response = generate_http_response(status_code, file_path)
+                client_socket.sendall(response.encode())
+            except Exception as e:
+                print(f"Error handling request: {e}")
+                traceback.print_exc()  # To print the stack trace of the error
+            finally:
+                client_socket.close()
+    except Exception as e:
+        print(f"Fatal error in server: {e}")
+        traceback.print_exc()
+    finally:
+        server_socket.close()
 
 if __name__ == "__main__":
     main()
