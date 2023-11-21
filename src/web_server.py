@@ -51,7 +51,7 @@ def handle_request(request):
 
     if method == "GET":
         if path == "/":
-            path = "/test.html"  # Default to test.html for simplicity
+            path = "/test.html"  
 
         file_path = f'.{path}'
         if not os.path.exists(file_path):
@@ -93,7 +93,7 @@ def main():
                 client_socket.sendall(response.encode())
             except Exception as e:
                 print(f"Error handling request: {e}")
-                traceback.print_exc()  # To print the stack trace of the error
+                traceback.print_exc()  
             finally:
                 client_socket.close()
     except Exception as e:
