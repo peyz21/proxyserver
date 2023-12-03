@@ -5,15 +5,22 @@ import traceback
 
 def generate_http_response(status_code, path=''):
     """ Generate an HTTP response based on the given status code. """
+    content_type = "Content-Type: text/html\n\n"  
+    if status_code == 200 and path:
+        last_modified = f"Last-Modified: {last_modified_time(path)}\n"
+    else:
+        last_modified = ""
+
     responses = {
-        200: f"HTTP/1.1 200 OK\nContent-Type: text/html\n\n{read_file(path)}",
+        200: f"HTTP/1.1 200 OK\n{last_modified}{content_type}{read_file(path)}",
         304: "HTTP/1.1 304 Not Modified\n\n",
-        400: "HTTP/1.1 400 Bad Request\n\n<html><body><h1>400 Bad Request</h1></body></html>",
-        403: "HTTP/1.1 403 Forbidden\n\n<html><body><h1>403 Forbidden</h1></body></html>",
-        404: "HTTP/1.1 404 Not Found\n\n<html><body><h1>404 Not Found</h1></body></html>",
-        411: "HTTP/1.1 411 Length Required\n\n<html><body><h1>411 Length Required</h1></body></html>"
+        400: f"HTTP/1.1 400 Bad Request\n{content_type}<html><body><h1>400 Bad Request</h1></body></html>",
+        403: f"HTTP/1.1 403 Forbidden\n{content_type}<html><body><h1>403 Forbidden</h1></body></html>",
+        404: f"HTTP/1.1 404 Not Found\n{content_type}<html><body><h1>404 Not Found</h1></body></html>",
+        411: f"HTTP/1.1 411 Length Required\n{content_type}<html><body><h1>411 Length Required</h1></body></html>"
     }
-    return responses.get(status_code, "HTTP/1.1 500 Internal Server Error\n\n")
+    return responses.get(status_code, f"HTTP/1.1 500 Internal Server Error\n{content_type}")
+
 
 def read_file(path):
     """ Helper function to read file content """
