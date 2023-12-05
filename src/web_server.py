@@ -41,18 +41,18 @@ def last_modified_time(path):
 def handle_request(request):
     """ Handle the incoming request and determine the status code. """
     if not request.strip(): 
-        return 400, ''  # Return Bad Request for empty or whitespace-only requests
+        return 400, ''  # Return Bad Request for empty or whitespace-only requests 400
 
     headers = request.split("\n")
     first_line = headers[0]
     parts = first_line.split()
 
     if len(parts) != 3: 
-        return 400, ''  # Return Bad Request for malformed request lines
+        return 400, ''  # Return Bad Request for malformed request lines 400 
 
     method, path, _ = parts
 
-    # Check for explicitly forbidden paths
+    
     if path == "/forbiddenpath":
         return 403, ''  # Return 403 Forbidden for this specific path
 
@@ -64,7 +64,7 @@ def handle_request(request):
         if not os.path.exists(file_path):
             return 404, ''  # Return 404 Not Found for nonexistent files
 
-        # Check for If-Modified-Since header
+        
         for header in headers:
             if header.startswith('If-Modified-Since:'):
                 last_mod_client = header.split(': ')[1].strip()
@@ -75,7 +75,6 @@ def handle_request(request):
         return 200, file_path  # Return 200 OK for successful GET requests
 
     elif method == "POST":
-        # Implement 411 Length Required for POST requests without Content-Length
         if 'Content-Length:' not in request:
             return 411, ''  
 
