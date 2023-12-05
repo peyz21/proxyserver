@@ -2,10 +2,11 @@ import socket
 import os
 import datetime
 import traceback
+import threading
 
 def generate_http_response(status_code, path=''):
     """ Generate an HTTP response based on the given status code. """
-    content_type = "Content-Type: text/html\n\n"  
+    content_type = "Content-Type: text/html\n\n"
     if status_code == 200 and path:
         last_modified = f"Last-Modified: {last_modified_time(path)}\n"
     else:
@@ -20,7 +21,6 @@ def generate_http_response(status_code, path=''):
         411: f"HTTP/1.1 411 Length Required\n{content_type}<html><body><h1>411 Length Required</h1></body></html>"
     }
     return responses.get(status_code, f"HTTP/1.1 500 Internal Server Error\n{content_type}")
-
 
 def read_file(path):
     """ Helper function to read file content """
@@ -81,6 +81,21 @@ def handle_request(request):
 
     return 403, ''  # Return 403 Forbidden for all other cases
 
+def handle_client_connection(client_socket, address):
+    """Handle individual client connection."""
+    try:
+        request = client_socket.recv(1024).decode()
+        print(f"Received request from {address}:\n{request}")
+
+        status_code, file_path = handle_request(request)
+        response = generate_http_response(status_code, file_path)
+        client_socket.sendall(response.encode())
+    except Exception as e:
+        print(f"Error handling request from {address}: {e}")
+        traceback.print_exc()
+    finally:
+        client_socket.close()
+
 def main():
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,17 +107,11 @@ def main():
         while True:
             try:
                 client_socket, address = server_socket.accept()
-                request = client_socket.recv(1024).decode()
-                print(f"Received request:\n{request}")
-
-                status_code, file_path = handle_request(request)
-                response = generate_http_response(status_code, file_path)
-                client_socket.sendall(response.encode())
+                client_thread = threading.Thread(target=handle_client_connection, args=(client_socket, address))
+                client_thread.start()
             except Exception as e:
-                print(f"Error handling request: {e}")
-                traceback.print_exc()  
-            finally:
-                client_socket.close()
+                print(f"Error accepting connection: {e}")
+                traceback.print_exc()
     except Exception as e:
         print(f"Fatal error in server: {e}")
         traceback.print_exc()
